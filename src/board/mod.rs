@@ -10,6 +10,7 @@ pub struct Board {
     bombs: usize,
     first_click: bool,
     pub auto_flag: bool,
+    pub auto_reveal: bool,
 }
 
 impl Board {
@@ -22,6 +23,7 @@ impl Board {
             bombs: b,
             first_click: false,
             auto_flag: true,
+            auto_reveal: true,
         }
     }
     pub fn fisrt_click(&mut self, c: Pos) {
@@ -37,7 +39,7 @@ impl Board {
             let row = rng.gen::<usize>() % self.rows();
 
             // Retry if bomb is too close to click or spot is already a bomb
-            if col.abs_diff(c.1) <= 1 || row.abs_diff(c.0) <= 1 || self.get_cell((row, col)).bomb {
+            if (col.abs_diff(c.1) <= 1 && row.abs_diff(c.0) <= 1) || self.get_cell((row, col)).bomb {
                 continue;
             }
 
@@ -90,8 +92,9 @@ impl Board {
             debug!("Covered or flagged cells surrounding {c:?} is {}", n.len());
             if cell.value == n.len() {
                 // All surrounding covered spaces must be bombs
-                n.into_iter()
+                n.iter()
                     .for_each(|c| self.cells[c.0][c.1].state = CellState::Flagged);
+                self.auto_reveal(n);
             }
         }
     }
@@ -121,6 +124,13 @@ impl Board {
 
     pub fn columns(&self) -> usize {
         self.cells[0].len()
+    }
+
+    pub fn bombs_left(&self) -> isize {
+        self.bombs as isize - self.cells
+            .iter()
+            .map(|r| r.iter().filter(|c| c.state == CellState::Flagged).count() as isize)
+            .sum::<isize>()
     }
 
     fn nearby_cells(&self, c: Pos) -> Vec<Pos> {
@@ -170,6 +180,7 @@ impl Board {
 
         while let Some(c) = n.pop() {
             self.expose(c);
+            self.nearby_cells(c).into_iter().for_each(|c| { self.is_cell_satsfied(c); });
             let cell = self.get_cell(c);
             if cell.value == 0 || self.is_cell_satsfied(c) {
                 let mut n2 = self
@@ -180,6 +191,22 @@ impl Board {
                 n.append(&mut n2);
             }
         }
+
+    }
+
+    fn auto_reveal(&mut self, n: Vec<Pos>) {
+        if !self.auto_reveal {
+            return;
+        }
+
+        n.into_iter()
+            .for_each(|c| {
+                self.nearby_cells(c).into_iter().for_each(|c| {
+                    if self.is_cell_satsfied(c) {
+                        self.reveal_around(c);
+                    }
+                });
+            })
     }
 
     pub fn is_cell_satsfied(&mut self, c: Pos) -> bool {

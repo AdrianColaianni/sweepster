@@ -103,6 +103,7 @@ impl eframe::App for App {
                 ui.vertical(|ui| {
                     ui.heading("Assists");
                     ui.toggle_value(&mut self.board.auto_flag, "Auto plant flags");
+                    ui.toggle_value(&mut self.board.auto_reveal, "Auto reveal");
                 })
             });
 
@@ -130,6 +131,7 @@ impl eframe::App for App {
                         }
                     });
             });
+            ui.label(format!("{} bombs left", self.board.bombs_left()));
         });
     }
 }
