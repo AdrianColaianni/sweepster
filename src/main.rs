@@ -1,4 +1,3 @@
-use app::App;
 use board::Board;
 
 mod app;

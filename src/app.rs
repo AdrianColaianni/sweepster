@@ -25,18 +25,25 @@ impl Default for App {
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.vertical(|ui| {
-                ui.heading("Time for the Sweepster");
-                ui.add(
-                    Slider::new(&mut self.bombs, 50..=(self.height * self.width / 2))
-                        .text("Bomb count"),
-                );
-                ui.add(Slider::new(&mut self.height, 16..=128).text("Height"));
-                ui.add(Slider::new(&mut self.width, 16..=128).text("Width"));
-                if ui.button("Gen board").clicked() {
-                    self.board = Board::new(self.height, self.width, self.bombs);
-                    ctx.request_repaint();
-                }
+            ui.horizontal(|ui| {
+                ui.vertical(|ui| {
+                    ui.heading("Time for the Sweepster");
+                    ui.add(
+                        Slider::new(&mut self.bombs, 50..=(self.height * self.width / 2))
+                            .text("Bombs"),
+                    );
+                    ui.add(Slider::new(&mut self.height, 16..=128).text("Height"));
+                    ui.add(Slider::new(&mut self.width, 16..=128).text("Width"));
+                    if ui.button("Gen board").clicked() {
+                        self.board = Board::new(self.height, self.width, self.bombs);
+                        ctx.request_repaint();
+                    }
+                });
+                ui.separator();
+                ui.vertical(|ui| {
+                    ui.heading("Assists");
+                    ui.toggle_value(&mut self.board.auto_flag, "Auto plant flags");
+                })
             });
 
             ScrollArea::vertical().show(ui, |ui| {
@@ -76,19 +83,24 @@ fn cell_ui(ui: &mut egui::Ui, board: &mut Board, c: (usize, usize)) -> egui::Res
     }
 
     let color = match board.get_cell(c).state {
-        crate::board::CellState::Covered => Color32::BLUE,
+        crate::board::CellState::Covered => Color32::DARK_BLUE,
         crate::board::CellState::Empty => Color32::TRANSPARENT,
-        crate::board::CellState::Flagged => Color32::GOLD,
+        crate::board::CellState::Flagged => Color32::DARK_GREEN,
         crate::board::CellState::Detonated => Color32::RED,
     };
-
     if ui.is_rect_visible(rect) {
         let visuals = ui.style().interact(&response);
         ui.painter().rect(rect, 0.0, color, visuals.fg_stroke);
 
         if board.get_cell(c).is_empty() && board.get_cell(c).value != 0 {
             let visuals = ui.style().noninteractive();
-            let galley = WidgetText::from(format!("{}", board.get_cell(c).value)).into_galley(
+            let text_color = if board.is_cell_satsfied(c) {
+                Color32::DARK_GRAY
+            } else {
+                visuals.text_color()
+            };
+            let cell = board.get_cell(c);
+            let galley = WidgetText::from(format!("{}", cell.value)).into_galley(
                 ui,
                 None,
                 rect.size().y,
@@ -96,7 +108,7 @@ fn cell_ui(ui: &mut egui::Ui, board: &mut Board, c: (usize, usize)) -> egui::Res
             );
             let text_pos = ui.layout().align_size_within_rect(galley.size(), rect).min;
 
-            ui.painter().galley(text_pos, galley, visuals.text_color());
+            ui.painter().galley(text_pos, galley, text_color);
         }
     }
 

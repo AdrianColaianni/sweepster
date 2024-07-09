@@ -9,6 +9,7 @@ pub struct Board {
     cells: Vec<Vec<Cell>>, // Indexed or r,c
     bombs: usize,
     first_click: bool,
+    pub auto_flag: bool,
 }
 
 impl Board {
@@ -20,6 +21,7 @@ impl Board {
             cells,
             bombs: b,
             first_click: false,
+            auto_flag: true,
         }
     }
     pub fn fisrt_click(&mut self, c: Pos) {
@@ -68,10 +70,29 @@ impl Board {
         }
 
         cell.expose();
+        let cell = cell.clone();
 
-        if cell.value == 0 || cell.satisfied {
+        if cell.value == 0 || self.is_cell_satsfied(c) {
             debug!("Revealing around {c:?}");
             self.reveal_around(c)
+        }
+
+        // Auto flag
+        if self.auto_flag {
+            let n: Vec<Pos> = self
+                .nearby_cells(c)
+                .into_iter()
+                .filter(|c| {
+                    let s = self.get_cell(*c).state;
+                    s == CellState::Covered || s == CellState::Flagged || s == CellState::Detonated
+                })
+                .collect();
+            debug!("Covered or flagged cells surrounding {c:?} is {}", n.len());
+            if cell.value == n.len() {
+                // All surrounding covered spaces must be bombs
+                n.into_iter()
+                    .for_each(|c| self.cells[c.0][c.1].state = CellState::Flagged);
+            }
         }
     }
 
@@ -84,15 +105,14 @@ impl Board {
         } else if cell.state == CellState::Flagged {
             cell.state = CellState::Covered;
         }
-
-        // Update bombs around
-        self.nearby_cells(c)
-            .into_iter()
-            .for_each(|c| self.update_satisfaction(c));
     }
 
     pub fn get_cell(&self, c: Pos) -> &Cell {
         &self.cells[c.0][c.1]
+    }
+
+    fn get_cell_mut(&mut self, c: Pos) -> &mut Cell {
+        &mut self.cells[c.0][c.1]
     }
 
     pub fn rows(&self) -> usize {
@@ -104,7 +124,7 @@ impl Board {
     }
 
     fn nearby_cells(&self, c: Pos) -> Vec<Pos> {
-        let (r,c) = c;
+        let (r, c) = c;
         assert!(r < self.rows() && c < self.columns());
         let mut n = vec![];
 
@@ -151,7 +171,7 @@ impl Board {
         while let Some(c) = n.pop() {
             self.expose(c);
             let cell = self.get_cell(c);
-            if cell.value == 0 || cell.satisfied {
+            if cell.value == 0 || self.is_cell_satsfied(c) {
                 let mut n2 = self
                     .nearby_cells(c)
                     .into_iter()
@@ -162,17 +182,23 @@ impl Board {
         }
     }
 
-    fn update_satisfaction(&mut self, c: Pos) {
+    pub fn is_cell_satsfied(&mut self, c: Pos) -> bool {
+        let cell = self.get_cell(c);
+        if cell.satisfied {
+            return true;
+        }
+
         let f = self
             .nearby_cells(c)
             .into_iter()
             .filter(|c| self.get_cell(*c).state == CellState::Flagged)
             .count();
 
-        let cell = &mut self.cells[c.0][c.1];
         if f == cell.value {
-            debug!("Cell ({}, {}) is satisfied", c.0, c.1);
-            cell.satisfied = true;
+            self.get_cell_mut(c).satisfied = true;
+            true
+        } else {
+            false
         }
     }
 }
@@ -209,7 +235,7 @@ impl Default for Cell {
             state: CellState::Covered,
             bomb: false,
             value: 0,
-            satisfied: false,
+            satisfied: false
         }
     }
 }
