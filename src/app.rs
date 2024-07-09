@@ -1,4 +1,5 @@
 use egui::{TextStyle, WidgetText, Color32};
+use log::info;
 
 use crate::Board;
 
@@ -25,10 +26,12 @@ impl eframe::App for App {
                                 let c = (r, c);
                                 let cell = cell_ui(ui, &mut self.board, c);
                                 if cell.clicked() {
+                                    info!("Clicked {c:?}");
                                     self.board.expose(c);
                                 }
                                 if cell.secondary_clicked() {
-                                    self.board.plant_bomb(c);
+                                    info!("Flagged {c:?}");
+                                    self.board.toggle_bomb(c);
                                 }
                             });
                         }

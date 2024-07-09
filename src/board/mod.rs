@@ -61,19 +61,30 @@ impl Board {
             self.fisrt_click(c);
         }
 
-        self.cells[c.0][c.1].expose();
+        let cell = &mut self.cells[c.0][c.1];
 
-        if self.get_cell(c).value == 0 {
+        cell.expose();
+
+        if cell.value == 0 || cell.satisfied {
+            debug!("Revealing around {c:?}");
             self.reveal_around(c)
         }
     }
 
-    pub fn plant_bomb(&mut self, c: Pos) {
-        if !self.get_cell(c).is_covered() {
-            return;
+    pub fn toggle_bomb(&mut self, c: Pos) {
+        let cell = &mut self.cells[c.0][c.1];
+
+        // Toggle state
+        if cell.state == CellState::Covered {
+            cell.state = CellState::Flagged;
+        } else if cell.state == CellState::Flagged {
+            cell.state = CellState::Covered;
         }
 
-        self.cells[c.0][c.1].state = CellState::Flagged;
+        // Update bombs around
+        self.nearby_cells(c)
+            .into_iter()
+            .for_each(|c| self.update_satisfaction(c));
     }
 
     pub fn get_cell(&self, c: Pos) -> &Cell {
@@ -141,7 +152,8 @@ impl Board {
 
         while let Some(c) = n.pop() {
             self.expose(c);
-            if self.get_cell(c).value == 0 {
+            let cell = self.get_cell(c);
+            if cell.value == 0 || cell.satisfied {
                 let mut n2 = self
                     .nearby_cells(c)
                     .into_iter()
@@ -151,6 +163,20 @@ impl Board {
             }
         }
     }
+
+    fn update_satisfaction(&mut self, c: Pos) {
+        let f = self
+            .nearby_cells(c)
+            .into_iter()
+            .filter(|c| self.get_cell(*c).state == CellState::Flagged)
+            .count();
+
+        let cell = &mut self.cells[c.0][c.1];
+        if f == cell.value {
+            debug!("Cell ({}, {}) is satisfied", c.0, c.1);
+            cell.satisfied = true;
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -158,6 +184,7 @@ pub struct Cell {
     pub state: CellState,
     bomb: bool,
     pub value: usize,
+    satisfied: bool,
 }
 
 impl Cell {
@@ -184,6 +211,7 @@ impl Default for Cell {
             state: CellState::Covered,
             bomb: false,
             value: 0,
+            satisfied: false,
         }
     }
 }
