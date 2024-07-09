@@ -1,4 +1,4 @@
-use egui::{TextStyle, WidgetText};
+use egui::{TextStyle, WidgetText, Color32};
 
 use crate::Board;
 
@@ -22,12 +22,13 @@ impl eframe::App for App {
                     body.rows(1.0, self.board.height(), |mut row| {
                         for c in 0..self.board.width() {
                             row.col(|ui| {
-                                let cell = cell_ui(ui, &mut self.board, (c, r));
+                                let c = (r, c);
+                                let cell = cell_ui(ui, &mut self.board, c);
                                 if cell.clicked() {
-                                    self.board.expose((c, r));
+                                    self.board.expose(c);
                                 }
                                 if cell.secondary_clicked() {
-                                    todo!("Place bomb");
+                                    self.board.plant_bomb(c);
                                 }
                             });
                         }
@@ -46,15 +47,22 @@ fn cell_ui(ui: &mut egui::Ui, board: &mut Board, c: (usize, usize)) -> egui::Res
         response.mark_changed();
     }
 
+    let color = match board.get_cell(c).state {
+        crate::board::CellState::Covered => Color32::BLUE,
+        crate::board::CellState::Empty => Color32::TRANSPARENT,
+        crate::board::CellState::Flagged => Color32::GOLD,
+        crate::board::CellState::Detonated => Color32::RED
+    };
+
     if ui.is_rect_visible(rect) {
         let visuals = ui
             .style()
-            .interact_selectable(&response, board.is_covered(c));
+            .interact(&response);
         ui.painter()
-            .rect(rect, 2.0, visuals.bg_fill, visuals.fg_stroke);
-        if !(board.is_covered(c) || board.value(c) == 0) {
+            .rect(rect, 2.0, color, visuals.fg_stroke);
+        if !(board.get_cell(c).is_covered() || board.get_cell(c).value == 0) {
             let visuals = ui.style().noninteractive();
-            let galley = WidgetText::from(format!("{}", board.value(c))).into_galley(
+            let galley = WidgetText::from(format!("{}", board.get_cell(c).value)).into_galley(
                 ui,
                 None,
                 rect.size().y,

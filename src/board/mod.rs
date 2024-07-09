@@ -35,7 +35,7 @@ impl Board {
             let y = rng.gen::<usize>() % self.height();
 
             // Retry if bomb is too close to click or spot is already a bomb
-            if x.abs_diff(c.1) <= 1 || y.abs_diff(c.0) <= 1 || self.cells[y][x].bomb {
+            if x.abs_diff(c.1) <= 1 || y.abs_diff(c.0) <= 1 || self.get_cell((y, x)).bomb {
                 continue;
             }
 
@@ -47,7 +47,7 @@ impl Board {
         // TODO: Calculate numbers
         for y in 0..self.height() {
             for x in 0..self.width() {
-                self.cells[y][x].value = self
+                self.cells[x][y].value = self
                     .nearby_cells((y, x))
                     .iter()
                     .filter(|c| self.cells[c.1][c.0].bomb)
@@ -63,17 +63,21 @@ impl Board {
 
         self.cells[c.1][c.0].expose();
 
-        if self.value(c) == 0 {
+        if self.get_cell(c).value == 0 {
             self.reveal_around(c)
         }
     }
 
-    pub fn is_covered(&self, c: Pos) -> bool {
-        self.cells[c.1][c.0].covered()
+    pub fn plant_bomb(&mut self, c: Pos) {
+        if !self.get_cell(c).is_covered() {
+            return;
+        }
+
+        self.cells[c.1][c.0].state = CellState::Flagged;
     }
 
-    pub fn value(&self, c: Pos) -> usize {
-        self.cells[c.1][c.0].value
+    pub fn get_cell(&self, c: Pos) -> &Cell {
+        &self.cells[c.1][c.0]
     }
 
     pub fn height(&self) -> usize {
@@ -132,16 +136,16 @@ impl Board {
         let mut n: Vec<Pos> = self
             .nearby_cells(c)
             .into_iter()
-            .filter(|c| self.is_covered(*c))
+            .filter(|c| self.get_cell(*c).is_covered())
             .collect();
 
         while let Some(c) = n.pop() {
             self.expose(c);
-            if self.value(c) == 0 {
+            if self.get_cell(c).value == 0 {
                 let mut n2 = self
                     .nearby_cells(c)
                     .into_iter()
-                    .filter(|c| self.is_covered(*c))
+                    .filter(|c| self.get_cell(*c).is_covered())
                     .collect();
                 n.append(&mut n2);
             }
@@ -151,18 +155,22 @@ impl Board {
 
 #[derive(Clone)]
 pub struct Cell {
-    state: CellState,
+    pub state: CellState,
     bomb: bool,
-    value: usize,
+    pub value: usize,
 }
 
 impl Cell {
-    pub fn covered(&self) -> bool {
+    pub fn is_covered(&self) -> bool {
         self.state == CellState::Covered
     }
 
     pub fn expose(&mut self) {
-        self.state = CellState::Empty
+        self.state = if self.bomb {
+            CellState::Detonated
+        } else {
+            CellState::Empty
+        }
     }
 }
 
