@@ -14,16 +14,19 @@ pub struct Board {
 }
 
 impl Board {
-    pub fn new(r: usize, c: usize, b: usize) -> Self {
+    pub fn new(r: usize, c: usize, bombs: usize, auto_flag: bool, auto_reveal: bool) -> Self {
         // Create board
         let cells = vec![vec![Cell::default(); c]; r];
 
+        info!("Auto flag is {}", auto_flag);
+        info!("Auto reveal is {}", auto_reveal);
+
         Self {
             cells,
-            bombs: b,
+            bombs,
             first_click: false,
-            auto_flag: true,
-            auto_reveal: true,
+            auto_flag,
+            auto_reveal,
         }
     }
     pub fn fisrt_click(&mut self, c: Pos) {
@@ -39,7 +42,8 @@ impl Board {
             let row = rng.gen::<usize>() % self.rows();
 
             // Retry if bomb is too close to click or spot is already a bomb
-            if (col.abs_diff(c.1) <= 1 && row.abs_diff(c.0) <= 1) || self.get_cell((row, col)).bomb {
+            if (col.abs_diff(c.1) <= 1 && row.abs_diff(c.0) <= 1) || self.get_cell((row, col)).bomb
+            {
                 continue;
             }
 
@@ -93,9 +97,24 @@ impl Board {
             if cell.value == n.len() {
                 // All surrounding covered spaces must be bombs
                 n.iter()
-                    .for_each(|c| self.cells[c.0][c.1].state = CellState::Flagged);
-                self.auto_reveal(n);
+                    .for_each(|c| self.auto_flag(*c));
             }
+        }
+    }
+
+    fn auto_flag(&mut self, c: Pos) {
+        if self.get_cell(c).state != CellState::Detonated {
+            self.get_cell_mut(c).state = CellState::Flagged;
+        }
+
+        if self.auto_reveal {
+            self.nearby_cells(c)
+                .into_iter()
+                .for_each(|c| {
+                    if self.is_cell_satsfied(c) {
+                        self.auto_reveal(c);
+                    }
+                })
         }
     }
 
@@ -105,6 +124,9 @@ impl Board {
         // Toggle state
         if cell.state == CellState::Covered {
             cell.state = CellState::Flagged;
+            if self.auto_reveal {
+                self.auto_reveal(c);
+            }
         } else if cell.state == CellState::Flagged {
             cell.state = CellState::Covered;
         }
@@ -127,10 +149,12 @@ impl Board {
     }
 
     pub fn bombs_left(&self) -> isize {
-        self.bombs as isize - self.cells
-            .iter()
-            .map(|r| r.iter().filter(|c| c.state == CellState::Flagged).count() as isize)
-            .sum::<isize>()
+        self.bombs as isize
+            - self
+                .cells
+                .iter()
+                .map(|r| r.iter().filter(|c| c.state == CellState::Flagged).count() as isize)
+                .sum::<isize>()
     }
 
     fn nearby_cells(&self, c: Pos) -> Vec<Pos> {
@@ -180,7 +204,6 @@ impl Board {
 
         while let Some(c) = n.pop() {
             self.expose(c);
-            self.nearby_cells(c).into_iter().for_each(|c| { self.is_cell_satsfied(c); });
             let cell = self.get_cell(c);
             if cell.value == 0 || self.is_cell_satsfied(c) {
                 let mut n2 = self
@@ -191,22 +214,10 @@ impl Board {
                 n.append(&mut n2);
             }
         }
-
     }
 
-    fn auto_reveal(&mut self, n: Vec<Pos>) {
-        if !self.auto_reveal {
-            return;
-        }
-
-        n.into_iter()
-            .for_each(|c| {
-                self.nearby_cells(c).into_iter().for_each(|c| {
-                    if self.is_cell_satsfied(c) {
-                        self.reveal_around(c);
-                    }
-                });
-            })
+    fn auto_reveal(&mut self, n: Pos) {
+        self.reveal_around(n);
     }
 
     pub fn is_cell_satsfied(&mut self, c: Pos) -> bool {
@@ -223,6 +234,9 @@ impl Board {
 
         if f == cell.value {
             self.get_cell_mut(c).satisfied = true;
+            if self.auto_flag {
+                self.expose(c)
+            }
             true
         } else {
             false
@@ -262,7 +276,7 @@ impl Default for Cell {
             state: CellState::Covered,
             bomb: false,
             value: 0,
-            satisfied: false
+            satisfied: false,
         }
     }
 }
