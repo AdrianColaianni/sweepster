@@ -3,10 +3,10 @@ mod tests;
 use log::{debug, info};
 use rand::Rng;
 
-type Pos = (usize, usize);
+type Pos = (usize, usize); // Stored h,w
 
 pub struct Board {
-    cells: Vec<Vec<Cell>>, // Indexed h,w or y,x
+    cells: Vec<Vec<Cell>>, // Indexed h,w
     bombs: usize,
     first_click: bool,
 }
@@ -31,26 +31,26 @@ impl Board {
         // Place bombs, never next to first click
         let mut b = self.bombs;
         while b > 0 {
-            let x = rng.gen::<usize>() % self.width();
-            let y = rng.gen::<usize>() % self.height();
+            let w = rng.gen::<usize>() % self.width();
+            let h = rng.gen::<usize>() % self.height();
 
             // Retry if bomb is too close to click or spot is already a bomb
-            if x.abs_diff(c.1) <= 1 || y.abs_diff(c.0) <= 1 || self.get_cell((y, x)).bomb {
+            if w.abs_diff(c.1) <= 1 || h.abs_diff(c.0) <= 1 || self.get_cell((h, w)).bomb {
                 continue;
             }
 
-            debug!("Placing bomb at ({x}, {y})");
-            self.cells[y][x].bomb = true;
+            debug!("Placing bomb at ({h}, {w})");
+            self.cells[h][w].bomb = true;
             b -= 1;
         }
 
         // TODO: Calculate numbers
-        for y in 0..self.height() {
-            for x in 0..self.width() {
-                self.cells[x][y].value = self
-                    .nearby_cells((y, x))
+        for h in 0..self.height() {
+            for w in 0..self.width() {
+                self.cells[h][w].value = self
+                    .nearby_cells((h, w))
                     .iter()
-                    .filter(|c| self.cells[c.1][c.0].bomb)
+                    .filter(|c| self.cells[c.0][c.1].bomb)
                     .count();
             }
         }
@@ -61,7 +61,7 @@ impl Board {
             self.fisrt_click(c);
         }
 
-        self.cells[c.1][c.0].expose();
+        self.cells[c.0][c.1].expose();
 
         if self.get_cell(c).value == 0 {
             self.reveal_around(c)
@@ -73,11 +73,11 @@ impl Board {
             return;
         }
 
-        self.cells[c.1][c.0].state = CellState::Flagged;
+        self.cells[c.0][c.1].state = CellState::Flagged;
     }
 
     pub fn get_cell(&self, c: Pos) -> &Cell {
-        &self.cells[c.1][c.0]
+        &self.cells[c.0][c.1]
     }
 
     pub fn height(&self) -> usize {
@@ -89,14 +89,14 @@ impl Board {
     }
 
     fn nearby_cells(&self, c: Pos) -> Vec<Pos> {
-        // (c.0 - 1, c.1 - 1),
-        // (c.0 - 1, c.1 - 0),
-        // (c.0 - 1, c.1 + 1),
-        // (c.0 - 0, c.1 - 1),
-        // (c.0 - 0, c.1 + 1),
-        // (c.0 + 1, c.1 - 1),
-        // (c.0 + 1, c.1 - 0),
-        // (c.0 + 1, c.1 + 1),
+        // (c.1 - 1, c.0 - 1),
+        // (c.1 - 1, c.0 - 0),
+        // (c.1 - 1, c.0 + 1),
+        // (c.1 - 0, c.0 - 1),
+        // (c.1 - 0, c.0 + 1),
+        // (c.1 + 1, c.0 - 1),
+        // (c.1 + 1, c.0 - 0),
+        // (c.1 + 1, c.0 + 1),
         let mut n = vec![];
 
         let c1gt0 = c.1 > 0;
@@ -163,6 +163,10 @@ pub struct Cell {
 impl Cell {
     pub fn is_covered(&self) -> bool {
         self.state == CellState::Covered
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.state == CellState::Empty
     }
 
     pub fn expose(&mut self) {

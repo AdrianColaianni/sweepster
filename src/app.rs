@@ -60,7 +60,7 @@ fn cell_ui(ui: &mut egui::Ui, board: &mut Board, c: (usize, usize)) -> egui::Res
             .interact(&response);
         ui.painter()
             .rect(rect, 2.0, color, visuals.fg_stroke);
-        if !(board.get_cell(c).is_covered() || board.get_cell(c).value == 0) {
+        if board.get_cell(c).is_empty() && board.get_cell(c).value != 0 {
             let visuals = ui.style().noninteractive();
             let galley = WidgetText::from(format!("{}", board.get_cell(c).value)).into_galley(
                 ui,
