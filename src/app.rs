@@ -1,4 +1,6 @@
-use crate::{board::Cell, Board};
+use egui::{TextStyle, WidgetText};
+
+use crate::Board;
 
 pub struct App {
     board: Board,
@@ -20,10 +22,16 @@ impl eframe::App for App {
                     body.rows(1.0, self.board.height(), |mut row| {
                         for c in 0..self.board.width() {
                             row.col(|ui| {
-                                cell_ui(ui, &mut self.board, (c, r));
+                                let cell = cell_ui(ui, &mut self.board, (c, r));
+                                if cell.clicked() {
+                                    self.board.expose((c, r));
+                                }
+                                if cell.secondary_clicked() {
+                                    todo!("Place bomb");
+                                }
                             });
                         }
-                        r = r + 1;
+                        r += 1;
                     });
                 });
         });
@@ -35,23 +43,26 @@ fn cell_ui(ui: &mut egui::Ui, board: &mut Board, c: (usize, usize)) -> egui::Res
     let (rect, mut response) = ui.allocate_exact_size(desired_size, egui::Sense::click());
 
     if response.clicked() {
-        board.expose(c);
         response.mark_changed();
     }
 
-    // response.widget_info(|| {
-    //     egui::WidgetInfo::selected(
-    //         egui::WidgetType::Checkbox,
-    //         ui.is_enabled(),
-    //         board.covered(),
-    //         "",
-    //     )
-    // });
-
     if ui.is_rect_visible(rect) {
-        let visuals = ui.style().interact_selectable(&response, board.covered(c));
+        let visuals = ui
+            .style()
+            .interact_selectable(&response, board.is_covered(c));
         ui.painter()
-            .rect(rect, 2.0, visuals.bg_fill, visuals.bg_stroke);
+            .rect(rect, 2.0, visuals.bg_fill, visuals.fg_stroke);
+        if !(board.is_covered(c) || board.value(c) == 0) {
+            let visuals = ui.style().noninteractive();
+            let galley = WidgetText::from(format!("{}", board.value(c))).into_galley(
+                ui,
+                None,
+                rect.size().y,
+                TextStyle::Button,
+            );
+            ui.painter()
+                .galley(rect.center_top(), galley, visuals.text_color());
+        }
     }
 
     response
