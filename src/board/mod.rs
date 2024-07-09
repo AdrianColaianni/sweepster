@@ -109,32 +109,32 @@ impl Board {
         let mut n = vec![];
 
         let rgt0 = r > 0;
-        let c1lth = r < self.rows() - 1;
+        let rltl = r < self.rows() - 1;
 
         if c > 0 {
-            n.push((c - 1, r));
+            n.push((r, c - 1));
             if rgt0 {
-                n.push((c - 1, r - 1));
+                n.push((r - 1, c - 1));
             }
-            if c1lth {
-                n.push((c - 1, r + 1));
+            if rltl {
+                n.push((r + 1, c - 1));
             }
         }
 
         if rgt0 {
-            n.push((c, r - 1));
+            n.push((r - 1, c));
         }
-        if c1lth {
-            n.push((c, r + 1));
+        if rltl {
+            n.push((r + 1, c));
         }
 
         if c < self.columns() - 1 {
-            n.push((c + 1, r));
+            n.push((r, c + 1));
             if rgt0 {
-                n.push((c + 1, r - 1));
+                n.push((r - 1, c + 1));
             }
-            if c1lth {
-                n.push((c + 1, r + 1));
+            if rltl {
+                n.push((r + 1, c + 1));
             }
         }
 
