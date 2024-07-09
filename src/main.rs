@@ -14,7 +14,7 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "Sweepster",
         options,
-        Box::new(|_| Ok(Box::<app::App>::new(App::new(Board::new(32, 32, 50))))),
+        Box::new(|_| Ok(Box::<app::App>::default())),
     )?;
     Ok(())
 }

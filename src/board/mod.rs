@@ -3,18 +3,18 @@ mod tests;
 use log::{debug, info};
 use rand::Rng;
 
-type Pos = (usize, usize); // Stored h,w
+type Pos = (usize, usize); // Stored or r,c
 
 pub struct Board {
-    cells: Vec<Vec<Cell>>, // Indexed h,w
+    cells: Vec<Vec<Cell>>, // Indexed or r,c
     bombs: usize,
     first_click: bool,
 }
 
 impl Board {
-    pub fn new(h: usize, w: usize, b: usize) -> Self {
+    pub fn new(r: usize, c: usize, b: usize) -> Self {
         // Create board
-        let cells = vec![vec![Cell::default(); w]; h];
+        let cells = vec![vec![Cell::default(); c]; r];
 
         Self {
             cells,
@@ -31,24 +31,24 @@ impl Board {
         // Place bombs, never next to first click
         let mut b = self.bombs;
         while b > 0 {
-            let w = rng.gen::<usize>() % self.width();
-            let h = rng.gen::<usize>() % self.height();
+            let col = rng.gen::<usize>() % self.columns();
+            let row = rng.gen::<usize>() % self.rows();
 
             // Retry if bomb is too close to click or spot is already a bomb
-            if w.abs_diff(c.1) <= 1 || h.abs_diff(c.0) <= 1 || self.get_cell((h, w)).bomb {
+            if col.abs_diff(c.1) <= 1 || row.abs_diff(c.0) <= 1 || self.get_cell((row, col)).bomb {
                 continue;
             }
 
-            debug!("Placing bomb at ({h}, {w})");
-            self.cells[h][w].bomb = true;
+            debug!("Placing bomb at ({row}, {col})");
+            self.cells[row][col].bomb = true;
             b -= 1;
         }
 
         // TODO: Calculate numbers
-        for h in 0..self.height() {
-            for w in 0..self.width() {
-                self.cells[h][w].value = self
-                    .nearby_cells((h, w))
+        for r in 0..self.rows() {
+            for c in 0..self.columns() {
+                self.cells[r][c].value = self
+                    .nearby_cells((r, c))
                     .iter()
                     .filter(|c| self.cells[c.0][c.1].bomb)
                     .count();
@@ -62,6 +62,10 @@ impl Board {
         }
 
         let cell = &mut self.cells[c.0][c.1];
+
+        if cell.state == CellState::Flagged {
+            return;
+        }
 
         cell.expose();
 
@@ -91,52 +95,46 @@ impl Board {
         &self.cells[c.0][c.1]
     }
 
-    pub fn height(&self) -> usize {
+    pub fn rows(&self) -> usize {
         self.cells.len()
     }
 
-    pub fn width(&self) -> usize {
+    pub fn columns(&self) -> usize {
         self.cells[0].len()
     }
 
     fn nearby_cells(&self, c: Pos) -> Vec<Pos> {
-        // (c.1 - 1, c.0 - 1),
-        // (c.1 - 1, c.0 - 0),
-        // (c.1 - 1, c.0 + 1),
-        // (c.1 - 0, c.0 - 1),
-        // (c.1 - 0, c.0 + 1),
-        // (c.1 + 1, c.0 - 1),
-        // (c.1 + 1, c.0 - 0),
-        // (c.1 + 1, c.0 + 1),
+        let (r,c) = c;
+        assert!(r < self.rows() && c < self.columns());
         let mut n = vec![];
 
-        let c1gt0 = c.1 > 0;
-        let c1lth = c.1 < self.height() - 1;
+        let rgt0 = r > 0;
+        let c1lth = r < self.rows() - 1;
 
-        if c.0 > 0 {
-            n.push((c.0 - 1, c.1));
-            if c1gt0 {
-                n.push((c.0 - 1, c.1 - 1));
+        if c > 0 {
+            n.push((c - 1, r));
+            if rgt0 {
+                n.push((c - 1, r - 1));
             }
             if c1lth {
-                n.push((c.0 - 1, c.1 + 1));
+                n.push((c - 1, r + 1));
             }
         }
 
-        if c1gt0 {
-            n.push((c.0, c.1 - 1));
+        if rgt0 {
+            n.push((c, r - 1));
         }
         if c1lth {
-            n.push((c.0, c.1 + 1));
+            n.push((c, r + 1));
         }
 
-        if c.0 < self.width() - 1 {
-            n.push((c.0 + 1, c.1));
-            if c1gt0 {
-                n.push((c.0 + 1, c.1 - 1));
+        if c < self.columns() - 1 {
+            n.push((c + 1, r));
+            if rgt0 {
+                n.push((c + 1, r - 1));
             }
             if c1lth {
-                n.push((c.0 + 1, c.1 + 1));
+                n.push((c + 1, r + 1));
             }
         }
 
