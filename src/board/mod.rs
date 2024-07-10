@@ -78,10 +78,11 @@ impl Board {
         cell.expose();
 
         if cell.value == 0 {
-            self.reveal_around(c);
-        }
-        if self.auto_reveal && self.is_cell_satsfied(c) {
-            self.auto_reveal(c);
+            self.reveal_empty(c);
+        } else if self.is_cell_satsfied(c) {
+            self.reveal_satisfied(c);
+        } else if self.auto_flag {
+            self.auto_flag(vec![c]);
         }
     }
 
@@ -187,8 +188,8 @@ impl Board {
     }
 
     // Reveal EVERYTHING around a cell
-    fn reveal_around(&mut self, c: Pos) {
-        debug!("Revealing around {c:?}");
+    fn reveal_empty(&mut self, c: Pos) {
+        debug!("Revealing empty cell {c:?}");
 
         assert_eq!(self.get_cell(c).value, 0);
         let mut e: Vec<Pos> = vec![c];
@@ -211,6 +212,30 @@ impl Board {
 
         if self.auto_flag {
             self.auto_flag(n);
+        }
+    }
+
+    // Reveal satisfied cell
+    fn reveal_satisfied(&mut self, c: Pos) {
+        debug!("Revealing satisfied cell {c:?}");
+
+        let mut s = vec![c];
+        let mut i = 0;
+
+        while i < s.len() {
+            let c = s[i];
+            self.nearby_cells(c)
+                .into_iter()
+                .for_each(|c| {
+                    let cell = self.get_cell_mut(c);
+                    if cell.is_covered() {
+                        cell.expose();
+                        if self.is_cell_satsfied(c) && !s.contains(&c) {
+                            s.push(c);
+                        }
+                    }
+                });
+            i += 1;
         }
     }
 
