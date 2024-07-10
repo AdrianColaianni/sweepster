@@ -1,5 +1,5 @@
 use crate::{color, Board};
-use egui::{Color32, Grid, ScrollArea, Slider, TextStyle, WidgetText};
+use egui::{Color32, Grid, ScrollArea, Slider, TextStyle, WidgetText, RichText};
 use log::info;
 
 const CELL_SIZE: f32 = 1.5;
@@ -78,7 +78,7 @@ impl App {
         let bombs = 50;
         let rows = 32;
         let columns = 32;
-        let auto_flag = false;
+        let auto_flag = true;
         let auto_reveal = false;
         let board = Board::new(rows, columns, bombs, auto_flag, auto_reveal);
 
@@ -121,6 +121,7 @@ impl eframe::App for App {
                     ui.heading("Assists");
                     ui.toggle_value(&mut self.auto_flag, "Auto plant flags");
                     ui.toggle_value(&mut self.auto_reveal, "Auto reveal");
+                    ui.label(RichText::new("Only takes effect next round").color(color::SUBTLE))
                 })
             });
 

@@ -76,46 +76,37 @@ impl Board {
         }
 
         cell.expose();
-        let cell = cell.clone();
 
-        if cell.value == 0 || self.is_cell_satsfied(c) {
-            debug!("Revealing around {c:?}");
-            self.reveal_around(c)
+        if cell.value == 0 {
+            self.reveal_around(c);
         }
+        if self.auto_reveal && self.is_cell_satsfied(c) {
+            self.auto_reveal(c);
+        }
+    }
 
-        // Auto flag
-        if self.auto_flag {
+    // Take a list of pos and try to plant flags
+    fn auto_flag(&mut self, n: Vec<Pos>) {
+        for c in n {
             let n: Vec<Pos> = self
                 .nearby_cells(c)
                 .into_iter()
-                .filter(|c| {
-                    let s = self.get_cell(*c).state;
-                    s == CellState::Covered || s == CellState::Flagged || s == CellState::Detonated
-                })
+                .filter(|c| !self.get_cell(*c).is_empty())
                 .collect();
-            debug!("Covered or flagged cells surrounding {c:?} is {}", n.len());
-            if cell.value == n.len() {
-                // All surrounding covered spaces must be bombs
-                n.iter()
-                    .for_each(|c| self.auto_flag(*c));
+
+            let cell = self.get_cell_mut(c);
+            debug!("Running auto_flag on {c:?}: {} surrounding", n.len());
+            if n.len() == cell.value {
+                debug!("Placing all bombs for {c:?}");
+                n.into_iter().for_each(|c| {
+                    self.place_bomb(c);
+                });
             }
         }
     }
 
-    fn auto_flag(&mut self, c: Pos) {
-        if self.get_cell(c).state != CellState::Detonated {
-            self.get_cell_mut(c).state = CellState::Flagged;
-        }
-
-        if self.auto_reveal {
-            self.nearby_cells(c)
-                .into_iter()
-                .for_each(|c| {
-                    if self.is_cell_satsfied(c) {
-                        self.auto_reveal(c);
-                    }
-                })
-        }
+    fn place_bomb(&mut self, c: Pos) {
+        self.get_cell_mut(c).state = CellState::Flagged;
     }
 
     pub fn toggle_bomb(&mut self, c: Pos) {
@@ -195,36 +186,40 @@ impl Board {
         n
     }
 
+    // Reveal EVERYTHING around a cell
     fn reveal_around(&mut self, c: Pos) {
-        let mut n: Vec<Pos> = self
-            .nearby_cells(c)
-            .into_iter()
-            .filter(|c| self.get_cell(*c).is_covered())
-            .collect();
+        debug!("Revealing around {c:?}");
 
-        while let Some(c) = n.pop() {
-            self.expose(c);
-            let cell = self.get_cell(c);
-            if cell.value == 0 || self.is_cell_satsfied(c) {
-                let mut n2 = self
-                    .nearby_cells(c)
-                    .into_iter()
-                    .filter(|c| self.get_cell(*c).is_covered())
-                    .collect();
-                n.append(&mut n2);
+        assert_eq!(self.get_cell(c).value, 0);
+        let mut e: Vec<Pos> = vec![c];
+        let mut n: Vec<Pos> = vec![];
+        let mut i = 0;
+
+        // It's majorly fucked, majorly
+        while i < e.len() {
+            let c = e[i];
+            for c in self.nearby_cells(c) {
+                self.get_cell_mut(c).expose();
+                if self.get_cell(c).value == 0 && !e.contains(&c) {
+                    e.push(c);
+                } else if !n.contains(&c) {
+                    n.push(c);
+                }
             }
+            i += 1;
+        }
+
+        if self.auto_flag {
+            self.auto_flag(n);
         }
     }
 
     fn auto_reveal(&mut self, n: Pos) {
-        self.reveal_around(n);
+        todo!()
     }
 
     pub fn is_cell_satsfied(&mut self, c: Pos) -> bool {
         let cell = self.get_cell(c);
-        if cell.satisfied {
-            return true;
-        }
 
         let f = self
             .nearby_cells(c)
@@ -233,8 +228,7 @@ impl Board {
             .count();
 
         if f == cell.value {
-            self.get_cell_mut(c).satisfied = true;
-            if self.auto_flag {
+            if self.auto_reveal {
                 self.expose(c)
             }
             true
@@ -249,7 +243,6 @@ pub struct Cell {
     pub state: CellState,
     bomb: bool,
     pub value: usize,
-    satisfied: bool,
 }
 
 impl Cell {
@@ -276,7 +269,6 @@ impl Default for Cell {
             state: CellState::Covered,
             bomb: false,
             value: 0,
-            satisfied: false,
         }
     }
 }
