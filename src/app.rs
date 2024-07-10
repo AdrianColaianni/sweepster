@@ -150,6 +150,7 @@ impl eframe::App for App {
                     });
             });
             ui.label(format!("{} bombs left", self.board.bombs_left()));
+            ctx.request_repaint_after(std::time::Duration::from_millis(200));
         });
     }
 }
@@ -164,7 +165,7 @@ fn cell_ui(ui: &mut egui::Ui, board: &mut Board, c: (usize, usize)) -> egui::Res
 
     let color = match board.get_cell(c).state {
         crate::board::CellState::Covered => color::OVERLAY,
-        crate::board::CellState::Empty => Color32::TRANSPARENT,
+        crate::board::CellState::Empty => color::BASE,
         crate::board::CellState::Flagged => color::PINE,
         crate::board::CellState::Detonated => color::LOVE,
     };
